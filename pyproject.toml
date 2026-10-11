@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "videoverify"
+version = "0.1.0"
+description = "Agent-first local video inspection over MCP"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["mcp>=1.0,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+videoverify-mcp = "videoverify.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/videoverify"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
