@@ -20,6 +20,18 @@ def inspect_video(video_path: str, timestamp: float = 0.0) -> dict:
         return {"ok": False, "error": {"code": exc.code, "message": str(exc)}}
 
 
+@mcp.tool()
+def get_server_info() -> dict:
+    """Return basic information about VideoVerify."""
+
+    return {
+        "name": "VideoVerify",
+        "version": "0.1.0",
+        "purpose": "Quality inspection of video files through AI agents",
+        "status": "Under development"
+    }
+
+
 def main() -> None:
     mcp.run(transport="stdio")
 

@@ -10,8 +10,9 @@ from videoverify.core.video import InspectionError, inspect_media, resolve_video
 
 
 def test_rejects_parent_traversal(tmp_path):
-    with pytest.raises(InspectionError, match="allowed"):
+    with pytest.raises(InspectionError) as exc_info:
         resolve_video("../outside.mp4", tmp_path)
+    assert exc_info.value.code == "PATH_NOT_ALLOWED"
 
 
 def test_rejects_invalid_extension(tmp_path):
