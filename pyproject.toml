@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "videoverify"
+version = "0.1.0"
+description = "Local video inspection and evidence for AI agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+
+[project.optional-dependencies]
+mcp = ["mcp>=2.3.0,<3"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+videoverify = "videoverify.cli:main"
+videoverify-mcp = "videoverify.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

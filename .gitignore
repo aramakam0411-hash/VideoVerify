@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local generated inspection artifacts and demo media
+evidence/
+demo.mp4
