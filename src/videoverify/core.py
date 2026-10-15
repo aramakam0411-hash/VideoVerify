@@ -189,8 +189,72 @@ class Inspector:
             shutil.rmtree(destination)
             raise
 
+    def inspect_sequence(self, video_path: str, timestamps: list[float]) -> dict:
+        """Extract up to 24 distinct pictures in one decoding pass, without audio."""
+        if (not isinstance(timestamps, list) or not 1 <= len(timestamps) <= 24
+                or any(isinstance(t, bool) or not isinstance(t, (float, int))
+                       or not math.isfinite(t) or t < 0 for t in timestamps)
+                or any(a >= b for a, b in zip(timestamps, timestamps[1:]))):
+            raise InspectionError("invalid_timestamps", "Supply 1–24 finite increasing nonnegative timestamps.")
+        source = self._source(video_path)
+        initial_hash = file_hash(source)
+        metadata = self._json_probe(source, ["-show_format", "-show_streams"])
+        try:
+            duration = float(metadata["format"]["duration"])
+            if not math.isfinite(duration) or not 0 < duration <= self.limits.max_duration_seconds:
+                raise InspectionError("input_limit", "The video exceeds the configured duration limit.")
+            if timestamps[-1] >= duration:
+                raise InspectionError("timestamp_out_of_range", "Every timestamp must be earlier than the end.")
+            if "mp4" not in metadata["format"].get("format_name", "").split(","):
+                raise InspectionError("unsupported_format", "The content must be an MP4 container.")
+            raw = self._json_probe(source, ["-select_streams", "v:0", "-show_frames",
+                "-show_entries", "frame=best_effort_timestamp_time"])
+            pts = [float(frame["best_effort_timestamp_time"]) for frame in raw["frames"]]
+            if (not pts or any(not math.isfinite(t) for t in pts)
+                    or any(a > b for a, b in zip(pts, pts[1:]))):
+                raise ValueError
+        except (KeyError, ValueError, TypeError) as exc:
+            raise InspectionError("invalid_probe", "Video duration or frame times are unavailable.") from exc
+        relative = [t - pts[0] for t in pts]
+        selected = [max(0, bisect_right(relative, t + 1e-7) - 1) for t in timestamps]
+        indices = sorted(set(selected))
+        identity = uuid.uuid4().hex
+        destination = self.output / identity
+        destination.mkdir(mode=0o700)
+        try:
+            expression = "+".join(f"eq(n,{index})" for index in indices)
+            self._run("ffmpeg", ["-nostdin", "-v", "error", "-threads", "2",
+                "-protocol_whitelist", "file,pipe", "-i", str(source), "-an", "-map", "0:v:0",
+                "-vf", f"select='{expression}',scale=w='min(1280,iw)':h='min(1280,ih)':force_original_aspect_ratio=decrease",
+                "-fps_mode", "passthrough", "-frames:v", str(len(indices)), "-threads", "2",
+                "-start_number", "0", str(destination / "frame-%03d.png")])
+            paths = sorted(destination.glob("frame-*.png"))
+            if len(paths) != len(indices):
+                raise InspectionError("frame_unavailable", "The sequence extraction is incomplete.")
+            frames = []
+            for ordinal, (index, path) in enumerate(zip(indices, paths)):
+                frames.append({"frame_index": index, "actual_seconds": relative[index],
+                    "requested_seconds": [t for t, chosen in zip(timestamps, selected) if chosen == index],
+                    "path": str(path), "sha256": file_hash(path), "mime_type": "image/png",
+                    "uri": f"videoverify://artifacts/{identity}/frames/{ordinal}.png"})
+            if file_hash(source) != initial_hash:
+                raise InspectionError("source_changed", "The input changed during sequence extraction.")
+            result = {"ok": True, "schema_version": 1, "inspection_id": identity,
+                "source": {"path": str(source), "sha256": initial_hash, "bytes": source.stat().st_size},
+                "duration_seconds": duration, "frames": frames,
+                "report_uri": f"videoverify://artifacts/{identity}/inspection.json",
+                "limits": ["Only the returned pictures were sampled; unseen motion and sound are not established.",
+                           "No subjective quality, retention, reuse rights or publication approval is inferred."]}
+            (destination / "inspection.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+            return result
+        except BaseException:
+            shutil.rmtree(destination, ignore_errors=True)
+            raise
+
     def read_artifact(self, inspection_id: str, filename: str) -> bytes:
-        if not re.fullmatch(r"[0-9a-f]{32}", inspection_id) or filename not in {"frame.png", "audio.wav", "inspection.json"}:
+        if (not re.fullmatch(r"[0-9a-f]{32}", inspection_id) or
+                (filename not in {"frame.png", "audio.wav", "inspection.json"}
+                 and not re.fullmatch(r"frame-\d{3}\.png", filename))):
             raise InspectionError("artifact_not_allowed", "Use an artifact URI returned by an inspection.")
         path = self.output / inspection_id / filename
         if not path.resolve().is_relative_to(self.output) or not path.is_file():

@@ -4,7 +4,7 @@
 
 VideoVerify is an open-source project that helps AI agents inspect videos, identify verifiable problems, and determine whether a revision fixed an issue without introducing new regressions.
 
-> **Status:** M1 is implemented: local MP4 inspection through a CLI and a stdio MCP server. Analysis and comparison remain planned.
+> **Status (0.2.0):** local MP4 inspection, timestamped picture sequences, and optional public Instagram/YouTube video import through CLI/MCP. Analysis and comparison remain planned. Platform access is not guaranteed.
 
 ## Purpose
 
@@ -101,6 +101,61 @@ An inspection returns JSON with:
 
 Default M1 limits are512MiB input, ten minutes of video, at most ten seconds per audio excerpt, and120seconds per media subprocess. These bound the initial implementation; this is not a general long-video service. Use trusted local inputs and keep FFmpeg updated. Input-directory restrictions reduce file access but do not sandbox a media decoder against hostile files.
 
+### Picture sequences and public video links
+
+Extract several pictures in one decoding pass to inspect changes around a moment:
+
+```bash
+uv run videoverify sequence ./demo.mp4 --timestamps 0.8 1.0 1.2 \
+  --allow-root . --output-root ./evidence
+```
+
+The `inspect_sequence` MCP tool accepts the same `video_path` and `timestamps`.
+It returns up to 24 pictures, each with its decoded time/index, hash and PNG
+resource URI. Timestamps must increase; requests mapping to the same decoded
+picture share one artifact. Sequences contain no audio. Sparse samples do not
+establish everything happening between pictures or whether speech sounds natural.
+
+Optional public import uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) for platform
+resolution and a bounded HTTPS transfer for the selected MP4:
+
+```bash
+uv sync --extra fetch --extra mcp --extra dev
+uv run --extra fetch videoverify fetch 'https://www.youtube.com/watch?v=VIDEO_ID_HERE' \
+  --cache-root ./imports
+```
+
+Supply a real individual YouTube video/Short or Instagram Reel/video-post URL.
+The JSON result includes `video_path`, canonical source URL, byte count, duration
+and SHA256; use that local path with `inspect` or `sequence` and allow the import
+directory as an input root. Import does not itself inspect pictures or establish
+reuse rights. Tracking parameters and signed CDN URLs are not saved in receipts.
+
+To expose `import_video` through MCP, explicitly add `--import-root /path/to/imports`
+to the server command. That directory must be inside an existing `--allow-root`.
+Without this operator option the server remains local-only; no accounts or host
+configuration are changed. With pip, install `".[fetch,mcp]"` instead.
+
+Import limits: one public video, 64MiB, ten minutes, 90 seconds for resolution
+and transfer, plus bounded media validation. A 64MiB free-space reserve is required
+in addition to the import budget. The adapter selects a single HTTPS MP4, so
+adaptive-only formats, photo posts/carousels, live streams and playlists are not
+supported. Neither cookies, login credentials, CAPTCHA solving, proxies nor
+automatic retries are implemented. Actual login/rate-limit challenges stop with
+typed errors; partial imports are removed. Public access can vary by video and
+machine. An unrelated web fetch failure does not establish failure of this adapter.
+
+Page hosts and HTTPS media CDN domains are allowlisted; resolved private IPs and
+unapproved redirect targets are rejected for media transfers. This is not a
+network sandbox: the resolver is third-party code and DNS checks are not pinned
+to the actual connection. Run behind an appropriate egress boundary for untrusted
+multi-user deployments. No arbitrary direct-URL fetching is exposed.
+
+The import adapter and real selected-frame decoding were exercised on one public
+Instagram Reel on Linux. Tests cover mocked platform failures and original local
+fixtures without network access. YouTube URL validation is tested, but live YouTube
+acquisition has not been verified in this release. No universal access claim follows.
+
 ### MCP launch configuration
 
 Start the local stdio server:
@@ -133,10 +188,10 @@ The exact host setting differs. This repository does not modify host configurati
 
 ### Errors and tests
 
-The CLI returns exit2 and JSON with an error code for invalid input or an unavailable dependency. MCP marks failed calls with `is_error: true` and includes the same error code/message in its text content. URLs, traversal and symlinks outside configured roots are rejected. Successful results are structured data, with binary evidence retrieved through MCP resources.
+The CLI returns exit2 and JSON with an error code for invalid input or an unavailable dependency. MCP marks failed calls with `is_error: true` and includes the same error code/message in its text content. Local inspection still rejects URLs, traversal and symlinks outside configured roots; optional import is a separate tool. Successful results are structured data, with binary evidence retrieved through MCP resources.
 
 ```bash
-uv run --extra dev --extra mcp python -m pytest -q
+uv run --extra dev --extra mcp --extra fetch python -m pytest -q
 ```
 
 Tests generate original tiny MP4 fixtures and inspect actual decoded pixels and WAV samples. They cover missing audio, precise frame selection, invalid timestamps, path confinement, missing dependencies, malformed media, unique outputs, CLI errors, and a real stdio MCP client/tool/resource exchange. FFmpeg and FFprobe are required for integration tests; they are explicitly skipped when absent. The implementation was tested on Linux with Python3.11 and MCP2.3.0. Other operating systems and particular host applications have not been verified.

@@ -1,6 +1,7 @@
 """Optional local stdio MCP adapter. No live host configuration changes."""
 import argparse
 import json
+from pathlib import Path
 import sys
 from typing import Any
 
@@ -8,7 +9,7 @@ from .cli import configuration
 from .core import Inspector, InspectionError
 
 
-def create_server(inspector: Inspector):
+def create_server(inspector: Inspector, acquirer=None):
     from mcp.server import MCPServer
     from mcp.server.mcpserver.exceptions import ToolError
 
@@ -26,6 +27,35 @@ def create_server(inspector: Inspector):
         except OSError as exc:
             raise ToolError(json.dumps({"ok": False, "error": {
                 "code": "io_error", "message": "Unable to read or write local evidence."}})) from exc
+
+    if acquirer is not None:
+        @server.tool()
+        def import_video(url: str) -> dict[str, Any]:
+            """Import one public IG/YouTube video. No cookies, login or automatic retry."""
+            try:
+                return acquirer.fetch(url)
+            except InspectionError as exc:
+                raise ToolError(json.dumps(exc.as_dict())) from exc
+            except OSError as exc:
+                raise ToolError(json.dumps({"ok": False, "error": {
+                    "code": "io_error", "message": "Unable to store imported media."}})) from exc
+
+    @server.tool()
+    def inspect_sequence(video_path: str, timestamps: list[float]) -> dict[str, Any]:
+        """Extract 1–24 increasing timestamps in one pass for actual motion evidence."""
+        try:
+            return inspector.inspect_sequence(video_path, timestamps)
+        except InspectionError as exc:
+            raise ToolError(json.dumps(exc.as_dict())) from exc
+        except OSError as exc:
+            raise ToolError(json.dumps({"ok": False, "error": {
+                "code": "io_error", "message": "Unable to read or write sequence evidence."}})) from exc
+
+    @server.resource("videoverify://artifacts/{inspection_id}/frames/{ordinal}.png", mime_type="image/png")
+    def sequence_frame(inspection_id: str, ordinal: str) -> bytes:
+        if not ordinal.isascii() or not ordinal.isdigit() or not 0 <= int(ordinal) < 24:
+            raise InspectionError("artifact_not_allowed", "Use a returned sequence frame URI.")
+        return inspector.read_artifact(inspection_id, f"frame-{int(ordinal):03d}.png")
 
     @server.resource("videoverify://artifacts/{inspection_id}/frame.png", mime_type="image/png")
     def frame(inspection_id: str) -> bytes:
@@ -48,10 +78,19 @@ def create_server(inspector: Inspector):
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     configuration(parser)
+    parser.add_argument("--import-root", type=Path,
+                        help="Opt in to public URL import; must be under an allowed input root")
     args = parser.parse_args()
     try:
         inspector = Inspector(args.allow_root, args.output_root)
-        server = create_server(inspector)
+        acquirer = None
+        if args.import_root is not None:
+            from .acquisition import Acquirer
+            root = args.import_root.resolve()
+            if not any(root.is_relative_to(allowed) for allowed in inspector.roots):
+                raise InspectionError("configuration_error", "Import root must be inside an allowed input root.")
+            acquirer = Acquirer(root)
+        server = create_server(inspector, acquirer)
     except ImportError:
         parser.error('Install MCP support with pip install "videoverify[mcp]" from this checkout.')
     except InspectionError as exc:

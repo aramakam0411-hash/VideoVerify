@@ -22,9 +22,22 @@ def main() -> int:
     inspect.add_argument("video")
     inspect.add_argument("--timestamp", type=float, required=True)
     inspect.add_argument("--audio-seconds", type=float, default=4)
+    fetch = sub.add_parser("fetch", help="Import one public Instagram/YouTube video (optional fetch extra)")
+    fetch.add_argument("url")
+    fetch.add_argument("--cache-root", type=Path, required=True)
+    sequence = sub.add_parser("sequence", help="Extract up to 24 timestamped pictures in one pass")
+    configuration(sequence)
+    sequence.add_argument("video")
+    sequence.add_argument("--timestamps", type=float, nargs="+", required=True)
     args = parser.parse_args()
     try:
-        result = Inspector(args.allow_root, args.output_root).inspect(args.video, args.timestamp, args.audio_seconds)
+        if args.command == "fetch":
+            from .acquisition import Acquirer
+            result = Acquirer(args.cache_root).fetch(args.url)
+        elif args.command == "sequence":
+            result = Inspector(args.allow_root, args.output_root).inspect_sequence(args.video, args.timestamps)
+        else:
+            result = Inspector(args.allow_root, args.output_root).inspect(args.video, args.timestamp, args.audio_seconds)
     except InspectionError as exc:
         print(json.dumps(exc.as_dict()))
         return 2
