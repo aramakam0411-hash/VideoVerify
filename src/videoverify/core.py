@@ -57,7 +57,7 @@ class Inspector:
             raise InspectionError("configuration_error", "Input/output directories are unavailable.") from exc
         self.limits = limits or Limits()
 
-    def _source(self, value: str) -> Path:
+    def _source(self, value: str, *, suffixes: tuple[str, ...] = (".mp4",)) -> Path:
         if not isinstance(value, str) or not value or "://" in value:
             raise InspectionError("local_path_required", "Supply a local MP4 path, not a URL.")
         unresolved = Path(value).expanduser()
@@ -72,8 +72,8 @@ class Inspector:
             raise InspectionError("file_not_found", "The local video does not exist.")
         if not resolved.is_file():
             raise InspectionError("invalid_file", "The input must be a regular file.")
-        if resolved.suffix.lower() != ".mp4":
-            raise InspectionError("unsupported_format", "M1 accepts MP4 files only.")
+        if resolved.suffix.lower() not in suffixes:
+            raise InspectionError("unsupported_format", "The input has an unsupported file extension.")
         if resolved.stat().st_size > self.limits.max_bytes:
             raise InspectionError("input_limit", "The input exceeds the configured byte limit.")
         return resolved
@@ -253,7 +253,7 @@ class Inspector:
 
     def read_artifact(self, inspection_id: str, filename: str) -> bytes:
         if (not re.fullmatch(r"[0-9a-f]{32}", inspection_id) or
-                (filename not in {"frame.png", "audio.wav", "inspection.json"}
+                (filename not in {"frame.png", "audio.wav", "inspection.json", "transcript.json", "transcript.txt"}
                  and not re.fullmatch(r"frame-\d{3}\.png", filename))):
             raise InspectionError("artifact_not_allowed", "Use an artifact URI returned by an inspection.")
         path = self.output / inspection_id / filename

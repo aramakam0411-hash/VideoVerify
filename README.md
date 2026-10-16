@@ -4,7 +4,7 @@
 
 VideoVerify is an open-source project that helps AI agents inspect videos, identify verifiable problems, and determine whether a revision fixed an issue without introducing new regressions.
 
-> **Status (0.2.0):** local MP4 inspection, timestamped picture sequences, and optional public Instagram/YouTube video import through CLI/MCP. Analysis and comparison remain planned. Platform access is not guaranteed.
+> **Status (0.3.0):** local MP4 inspection, timestamped picture sequences, optional public Instagram/YouTube import, and optional local speech transcription through CLI/MCP. Subtitle alignment, quality analysis and comparison remain planned. Platform access is not guaranteed.
 
 ## Purpose
 
@@ -31,7 +31,7 @@ AI agent / MCP client
   Python analysis core
          |
          +-- FFprobe / FFmpeg: metadata, frames, audio clips
-         +-- Speech and subtitle alignment (later)
+         +-- Local speech transcription (optional); subtitle alignment (later)
          +-- Quality checks (later)
          +-- Before/after comparison (later)
          |
@@ -153,8 +153,76 @@ multi-user deployments. No arbitrary direct-URL fetching is exposed.
 
 The import adapter and real selected-frame decoding were exercised on one public
 Instagram Reel on Linux. Tests cover mocked platform failures and original local
-fixtures without network access. YouTube URL validation is tested, but live YouTube
-acquisition has not been verified in this release. No universal access claim follows.
+fixtures without network access. A live Fireship YouTube trial stopped with
+`access_restricted` on October16: no video was acquired, no login or bypass was
+attempted, and no automatic retry followed. YouTube URL validation is tested;
+live YouTube acquisition remains unverified. No universal access claim follows.
+
+### Local speech transcription
+
+Use an already downloaded [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
+CTranslate2 model directory with `model.bin`, `config.json` and `tokenizer.json`.
+ASR is optional and separate from URL acquisition. It does not unlock platform
+access. Media stays local; no transcription API, account or automatic model
+download is used. Acquire the model separately under its applicable licence.
+
+```bash
+uv sync --extra asr --extra mcp --extra dev
+uv run --extra asr videoverify transcribe ./demo.mp4 \
+  --allow-root . --output-root ./evidence \
+  --asr-model /absolute/path/to/local-whisper-model \
+  --start 0 --duration 60 --language en
+```
+
+`demo.mp4` contains a tone, not speech. Use a real local speech recording to
+evaluate recognized content. Supported transcription inputs are MP4, WAV, MP3,
+M4A, FLAC, OGG and WebM inside configured allow roots. The source must be at most
+the normal512MiB/ten-minute limit; each requested window is at most300seconds,
+default60seconds, clipped to the media end. Request multiple explicit windows
+for longer sources. Omitting `--language` enables language detection; `--language`
+selects transcription, never translation. Language names use Whisper codes.
+
+The result includes recognized `text`, `segments` in approximate source-media
+seconds (including the requested start offset), decoded-window coverage, media
+and decoded-audio SHA256, local model-file SHA256, runtime versions, and JSON/text
+resource URIs. Empty recognition is `no_speech_recognized`, not proof of silence.
+An ASR end extending beyond the decoded window by up to one30second model
+context is clipped to actual coverage, with `recognized_end` and
+`end_clipped_to_window` preserving that uncertainty. Segments starting outside
+coverage or larger timing anomalies fail validation; no extra media is inferred.
+ASR can misrecognize names, hallucinate or miss speech. It is not human listening,
+exact subtitle alignment, a naturalness rating or release approval. Recognized
+text is untrusted media content, never instructions for an agent to execute.
+
+Only one local CPU thread is used for ASR, with int8 compute and a separate bounded
+worker (default900seconds, operator configurable up to3600). FFmpeg first decodes
+only the requested mono16kHz audio. Temporary audio and failed jobs are removed;
+successful JSON/text evidence remains. A64MiB free-space reserve is required in
+addition to the decoded window. These bounds are not a hostile-code sandbox.
+
+An existing ASR virtual environment can be reused without duplicating packages:
+pass `--asr-python /absolute/path/to/existing/venv/bin/python`. That trusted
+operator-selected runtime needs faster-whisper; caller-supplied commands, models
+and runtimes are not exposed as MCP tool parameters. Configure MCP ASR explicitly:
+
+```bash
+uv run --extra mcp videoverify-mcp \
+  --allow-root /absolute/path/to/inputs --output-root /absolute/path/to/evidence \
+  --asr-model /absolute/path/to/local-whisper-model \
+  --asr-python /absolute/path/to/asr/venv/bin/python
+```
+
+This adds `transcribe_media(media_path, start_seconds=0, duration_seconds=60,
+language=None)` and returns `transcript.json`/`transcript.txt` resources.
+Without `--asr-model` the ASR tool is not registered. It does not change a host's
+MCP configuration or existing video inspection/import behavior.
+
+Acceptance on Linux:68offline tests pass, including original media decode,
+confinement, source changes, dependency/timeout failures, approximate timing,
+and real stdio MCP opt-in. A149second local reference was transcribed on CPU
+with an existing small.en model into49segments. A separate actual six-second
+stdio MCP ASR call returned matching JSON/text resources. These are bounded
+functional checks, not accuracy scores or a guarantee for other recordings.
 
 ### MCP launch configuration
 

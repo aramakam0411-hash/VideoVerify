@@ -29,11 +29,24 @@ def main() -> int:
     configuration(sequence)
     sequence.add_argument("video")
     sequence.add_argument("--timestamps", type=float, nargs="+", required=True)
+    transcribe = sub.add_parser("transcribe", help="Transcribe a local video/audio window with a predownloaded ASR model")
+    configuration(transcribe)
+    transcribe.add_argument("media")
+    transcribe.add_argument("--asr-model", type=Path, required=True)
+    transcribe.add_argument("--asr-python", type=Path, help="Trusted existing Python with the optional asr extra")
+    transcribe.add_argument("--asr-timeout", type=float, default=900)
+    transcribe.add_argument("--start", type=float, default=0)
+    transcribe.add_argument("--duration", type=float, default=60)
+    transcribe.add_argument("--language", help="Language code; omitted means detection")
     args = parser.parse_args()
     try:
         if args.command == "fetch":
             from .acquisition import Acquirer
             result = Acquirer(args.cache_root).fetch(args.url)
+        elif args.command == "transcribe":
+            from .transcription import Transcriber
+            result = Transcriber(Inspector(args.allow_root, args.output_root), args.asr_model,
+                args.asr_python, args.asr_timeout).transcribe(args.media, args.start, args.duration, args.language)
         elif args.command == "sequence":
             result = Inspector(args.allow_root, args.output_root).inspect_sequence(args.video, args.timestamps)
         else:
