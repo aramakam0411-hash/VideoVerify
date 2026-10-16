@@ -52,6 +52,27 @@ def test_errors_are_classified_without_sensitive_details(message, code):
     assert result.code == code and "secret" not in str(result)
 
 
+def test_youtube_requires_installed_player_support_and_selects_local_node(monkeypatch):
+    from videoverify.fetch_worker import youtube_runtime_options
+    monkeypatch.setattr("videoverify.fetch_worker.importlib.util.find_spec", lambda _: None)
+    with pytest.raises(InspectionError) as failure:
+        youtube_runtime_options()
+    assert failure.value.code == "dependency_missing"
+    monkeypatch.setattr("videoverify.fetch_worker.importlib.util.find_spec", lambda _: object())
+    monkeypatch.setattr("videoverify.fetch_worker.shutil.which", lambda name: "/installed/node" if name == "node" else None)
+    assert youtube_runtime_options() == {"js_runtimes": {"node": {"path": "/installed/node"}}, "remote_components": []}
+    monkeypatch.setattr("videoverify.fetch_worker.shutil.which", lambda _: None)
+    with pytest.raises(InspectionError) as failure:
+        youtube_runtime_options()
+    assert failure.value.code == "dependency_missing"
+
+
+def test_youtube_bot_verification_is_identified_without_raw_error():
+    failure = classify_error("Sign in to confirm you're not a bot. raw-secret-url")
+    assert failure.code == "access_restricted" and "sign-in" in str(failure)
+    assert "raw-secret" not in str(failure)
+
+
 def ready(monkeypatch):
     monkeypatch.setattr("videoverify.acquisition.importlib.util.find_spec", lambda _: object())
     monkeypatch.setattr("videoverify.acquisition.shutil.disk_usage", lambda _: SimpleNamespace(free=10**10))

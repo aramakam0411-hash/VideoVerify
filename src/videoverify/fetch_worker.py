@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import ipaddress
+import importlib.util
 import json
 from pathlib import Path
 import socket
+import shutil
 import sys
 import urllib.error
 import urllib.request
@@ -43,6 +45,10 @@ class QuietLogger:
 
 def classify_error(message: str) -> InspectionError:
     text = message.lower()
+    if "sign in to confirm" in text and "bot" in text:
+        return InspectionError("access_restricted", "YouTube requested sign-in to confirm this is not a bot; stop without retry or login.")
+    if "no supported javascript runtime" in text:
+        return InspectionError("dependency_missing", "YouTube requires a supported local JavaScript runtime.")
     if any(term in text for term in ("429", "rate limit", "rate-limit", "too many requests")):
         return InspectionError("rate_limited", "The platform limited access; stop and do not automatically retry.")
     if any(term in text for term in ("login", "log in", "sign in", "cookies", "private", "403", "captcha", "challenge", "bot")):
@@ -52,15 +58,29 @@ def classify_error(message: str) -> InspectionError:
     return InspectionError("acquisition_failed", "The public video could not be imported; raw platform details are withheld.")
 
 
+def youtube_runtime_options() -> dict:
+    """Use installed player-JS support only; no accounts or runtime downloads."""
+    if importlib.util.find_spec("yt_dlp_ejs") is None:
+        raise InspectionError("dependency_missing", "Install the fetch extra with yt-dlp default dependencies for YouTube player support.")
+    for name in ("deno", "node"):
+        executable = shutil.which(name)
+        if executable:
+            return {"js_runtimes": {name: {"path": executable}}, "remote_components": []}
+    raise InspectionError("dependency_missing", "YouTube needs an installed supported Deno or Node runtime; see yt-dlp EJS setup.")
+
+
 def fetch(url: str, destination: Path, max_bytes: int, max_duration: float) -> None:
     import yt_dlp
     options = {"quiet": True, "no_warnings": True, "logger": QuietLogger(),
                "socket_timeout": 15, "retries": 0, "extractor_retries": 0,
                "fragment_retries": 0, "noplaylist": True, "cachedir": False,
                "format": "best[ext=mp4][protocol=https]"}
+    canonical = canonical_url(url)
+    if urlsplit(canonical).hostname == "www.youtube.com":
+        options.update(youtube_runtime_options())
     try:
         with yt_dlp.YoutubeDL(options) as extractor:
-            info = extractor.extract_info(canonical_url(url), download=False)
+            info = extractor.extract_info(canonical, download=False)
     except yt_dlp.utils.DownloadError as exc:
         raise classify_error(str(exc)) from exc
     if not info or info.get("_type") in {"playlist", "multi_video"}:

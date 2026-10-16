@@ -4,7 +4,7 @@
 
 VideoVerify is an open-source project that helps AI agents inspect videos, identify verifiable problems, and determine whether a revision fixed an issue without introducing new regressions.
 
-> **Status (0.3.0):** local MP4 inspection, timestamped picture sequences, optional public Instagram/YouTube import, and optional local speech transcription through CLI/MCP. Subtitle alignment, quality analysis and comparison remain planned. Platform access is not guaranteed.
+> **Status (0.3.1):** local MP4 inspection, timestamped picture sequences, optional public Instagram/YouTube import, and optional local speech transcription through CLI/MCP. Subtitle alignment, quality analysis and comparison remain planned. Platform access is not guaranteed.
 
 ## Purpose
 
@@ -273,3 +273,19 @@ Feedback and contributions are welcome. For substantial changes, open an issue t
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+### YouTube player runtime prerequisites (0.3.1)
+
+The fetch extra now includes yt-dlp's default dependencies, including the
+matching yt-dlp-ejs player scripts. For YouTube, an installed supported Deno
+(preferred) or Node is selected explicitly; no runtime or script is downloaded
+on demand. Missing EJS/runtime returns dependency_missing before resolution.
+See [official yt-dlp EJS setup](https://github.com/yt-dlp/yt-dlp/wiki/EJS).
+This is normal player-JavaScript handling, not login, cookies, CAPTCHA solving
+or account verification. The same public-video limits and no-retry policy apply.
+
+An operator-requested fresh Fireship trial after installing EJS and selecting
+existing Node22.22.3 still required sign-in to confirm the request was not a bot.
+It stopped once, without login, cookies, proxy, client cycling or video import.
+That specific reason is now sanitized and distinguished from missing runtime
+support.70offline tests pass. Working dependencies do not guarantee YouTube access.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "videoverify"
-version = "0.3.0"
+version = "0.3.1"
 description = "Local video inspection and evidence for AI agents"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ license = "MIT"
 [project.optional-dependencies]
 mcp = ["mcp>=2.3.0,<3"]
 dev = ["pytest>=8"]
-fetch = ["yt-dlp>=2026.8.19"]
+fetch = ["yt-dlp[default]>=2026.8.19"]
 asr = ["faster-whisper>=1.2.1,<2"]
 
 [project.scripts]
