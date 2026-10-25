@@ -4,7 +4,62 @@
 
 VideoVerify is an open-source project that helps AI agents inspect videos, identify verifiable problems, and determine whether a revision fixed an issue without introducing new regressions.
 
-> **Status (0.3.1):** local MP4 inspection, timestamped picture sequences, optional public Instagram/YouTube import, and optional local speech transcription through CLI/MCP. Subtitle alignment, quality analysis and comparison remain planned. Platform access is not guaranteed.
+> **Status (0.4.0):** local MP4 inspection, timestamped picture sequences, optional public Instagram/YouTube import, optional local speech transcription through CLI/MCP, and an attended desktop browser screenshot command. Subtitle alignment, quality analysis and comparison remain planned. Platform access is not guaranteed.
+
+## When a YouTube URL cannot be imported
+
+A successful upload API connection does not grant access to other videos' media.
+A site may reject public imports and ordinary browser playback from a server.
+Do not retry against a verification screen, rotate accounts/proxies or treat a
+thumbnail as an inspected video frame.
+
+Version0.4 adds a separate **attended desktop capture** command. Run it on a
+machine where the selected public video already plays normally. It opens a
+fresh visible browser, lets the person start ordinary playback, pauses/seeks
+the player and saves cropped video-element screenshots with browser timestamps.
+It does not download a source video, collect a profile/cookies, automate login,
+solve verification, open a remote browser connection or fix a blocked server.
+If normal access is rejected, it stops. This is a CLI handoff, not an unattended
+MCP operation or automatic fallback.
+
+From a checkout of this repository, with uv and existing Chrome:
+
+```bash
+uv run --extra browser videoverify browser-capture \
+  'https://www.youtube.com/watch?v=VIDEO_ID_HERE' \
+  --channel chrome --timestamps 0.5 1 2 3 5 10 20 --output-root ./review-packets
+```
+
+Use a real video ID in the example. `--channel msedge` uses installed Edge.
+Alternatively omit the channel after installing Playwright's Chromium with
+`uv run --extra browser playwright install chromium`. Chrome/Edge availability
+and video playback on your desktop are prerequisites, not checked by our VPS.
+Follow the visible browser instructions, then press Enter in the terminal.
+Do not sign in or resolve an access-verification gate for this command; cancel
+if one is required. No existing browser profile is connected or exported.
+
+The generated ZIP contains only `inspection.json` and the requested JPEGs.
+Send that packet through your existing trusted file-sharing route to the agent.
+It can inspect the pictures without transferring the browser session. The
+manifest labels these as rendered screenshots at **browser clock times**,
+not decoded source-file frame indices. No audio or transcript is captured.
+Pictures do not establish continuous motion, audio quality, rights to reuse
+the creator's footage or audience performance. Public access is not a licence.
+
+Limits: up to24 increasing timestamps, a finite video duration up to600seconds,
+8MiB per screenshot and32MiB total picture data. Partial packets are removed on
+failure. Ad playback, a changed/unconfirmed video identity and unreadable media
+stop capture. Page/DOM changes may also stop it; this command uses the normal
+watch page and does not promise a stable YouTube API for screenshots.
+
+Validation: deterministic red/blue test footage is served through intercepted
+browser requests. Real Chromium seeks and screenshots verify image pixels,
+video-only crops, timestamps, packet hashes and partial-failure cleanup. All
+fixture requests are local; this is **not a live desktop YouTube acceptance**.
+Other tests reject unsupported URLs, invalid times, ads and verification pages.
+The server's live watch-page restriction remains a separate observed result.
+The fetch dependency floor is also updated to the maintainer's2026.10.21release;
+upgrading an extractor is not presented as removing a site access restriction.
 
 ## Purpose
 

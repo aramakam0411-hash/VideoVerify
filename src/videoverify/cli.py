@@ -25,6 +25,11 @@ def main() -> int:
     fetch = sub.add_parser("fetch", help="Import one public Instagram/YouTube video (optional fetch extra)")
     fetch.add_argument("url")
     fetch.add_argument("--cache-root", type=Path, required=True)
+    browser = sub.add_parser("browser-capture", help="Attended desktop YouTube player screenshots; no media download or login export")
+    browser.add_argument("url")
+    browser.add_argument("--timestamps", type=float, nargs="+", required=True)
+    browser.add_argument("--output-root", type=Path, required=True)
+    browser.add_argument("--channel", choices=["chrome", "msedge"], help="Use an existing local Chrome or Edge installation")
     sequence = sub.add_parser("sequence", help="Extract up to 24 timestamped pictures in one pass")
     configuration(sequence)
     sequence.add_argument("video")
@@ -40,7 +45,10 @@ def main() -> int:
     transcribe.add_argument("--language", help="Language code; omitted means detection")
     args = parser.parse_args()
     try:
-        if args.command == "fetch":
+        if args.command == "browser-capture":
+            from .browser_capture import attended_capture
+            result = attended_capture(args.url, args.timestamps, args.output_root, args.channel)
+        elif args.command == "fetch":
             from .acquisition import Acquirer
             result = Acquirer(args.cache_root).fetch(args.url)
         elif args.command == "transcribe":
