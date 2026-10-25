@@ -31,7 +31,7 @@ def create_server(inspector: Inspector, acquirer=None, transcriber=None):
     if acquirer is not None:
         @server.tool()
         def import_video(url: str) -> dict[str, Any]:
-            """Import one public IG/YouTube video. No cookies, login or automatic retry."""
+            """Import one public IG/YouTube/TikTok video. No cookies, login or automatic retry."""
             try:
                 return acquirer.fetch(url)
             except InspectionError as exc:

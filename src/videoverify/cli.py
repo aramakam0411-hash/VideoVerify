@@ -22,7 +22,7 @@ def main() -> int:
     inspect.add_argument("video")
     inspect.add_argument("--timestamp", type=float, required=True)
     inspect.add_argument("--audio-seconds", type=float, default=4)
-    fetch = sub.add_parser("fetch", help="Import one public Instagram/YouTube video (optional fetch extra)")
+    fetch = sub.add_parser("fetch", help="Import one public Instagram/YouTube/TikTok video (optional fetch extra)")
     fetch.add_argument("url")
     fetch.add_argument("--cache-root", type=Path, required=True)
     browser = sub.add_parser("browser-capture", help="Attended desktop YouTube player screenshots; no media download or login export")

@@ -4,7 +4,7 @@
 
 VideoVerify is an open-source project that helps AI agents inspect videos, identify verifiable problems, and determine whether a revision fixed an issue without introducing new regressions.
 
-> **Status (0.4.0):** local MP4 inspection, timestamped picture sequences, optional public Instagram/YouTube import, optional local speech transcription through CLI/MCP, and an attended desktop browser screenshot command. Subtitle alignment, quality analysis and comparison remain planned. Platform access is not guaranteed.
+> **Status (0.4.1):** local MP4 inspection, timestamped picture sequences, optional public Instagram/YouTube/TikTok import, optional local speech transcription through CLI/MCP, and an attended desktop browser screenshot command. Subtitle alignment, quality analysis and comparison remain planned. Platform access is not guaranteed.
 
 ## When a YouTube URL cannot be imported
 
@@ -344,3 +344,32 @@ existing Node22.22.3 still required sign-in to confirm the request was not a bot
 It stopped once, without login, cookies, proxy, client cycling or video import.
 That specific reason is now sanitized and distinguished from missing runtime
 support.70offline tests pass. Working dependencies do not guarantee YouTube access.
+
+
+## TikTok individual videos (0.4.1)
+
+```bash
+uv run --extra fetch videoverify fetch \
+  'https://www.tiktok.com/@CREATOR/video/VIDEO_ID' --cache-root ./imports
+```
+
+Supply a full HTTPS @creator/video/numeric-id link. Tracking queries are removed.
+Short vm/vt/share links, profiles, LIVE, photos and collections are unsupported;
+open a share link normally and copy the full video URL first. A successful
+import uses the same inspect/sequence/transcribe commands and opt-in MCP fetch.
+Only three TikTok media CDN families are added; public DNS, HTTPS, redirects,
+byte/time limits and real container validation still apply. Login, challenges
+or rate limits stop without retry, account access or alternate resolver.
+Browser-capture remains YouTube-only. Local fixture tests exercise actual
+MP4 validation and decoded pictures; see the release acceptance note for the
+separate live TikTok result. No guaranteed platform access or reuse rights.
+
+
+### TikTok release acceptance, October 25, 2026
+
+The new full-link parser, CDN checks, cleanup and decoded-frame fixture tests
+pass. One public upstream TikTok fixture URL returned `acquisition_failed` from
+the VPS; no media was acquired and no retry/login/bypass followed. This release
+does **not** claim working live TikTok access here. You may inspect a lawfully
+obtained local TikTok MP4 with the existing local commands. No third-party clip
+is shipped. Existing YouTube acquisition limitations remain separate.

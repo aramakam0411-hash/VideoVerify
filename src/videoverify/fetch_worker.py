@@ -20,7 +20,8 @@ def validate_media_url(url: str) -> None:
     try:
         parsed = urlsplit(url)
         host = (parsed.hostname or "").lower()
-        allowed = ("cdninstagram.com", "fbcdn.net", "googlevideo.com")
+        allowed = ("cdninstagram.com", "fbcdn.net", "googlevideo.com",
+                   "tiktokcdn.com", "tiktokcdn-us.com", "tiktokcdn-eu.com")
         if (parsed.scheme != "https" or parsed.username or parsed.password or parsed.port
                 or not any(host == domain or host.endswith("." + domain) for domain in allowed)):
             raise ValueError

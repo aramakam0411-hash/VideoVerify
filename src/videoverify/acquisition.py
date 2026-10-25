@@ -1,4 +1,4 @@
-"""Opt-in, bounded public Instagram/YouTube import. No accounts or cookies."""
+"""Opt-in, bounded public Instagram/YouTube/TikTok import. No accounts or cookies."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -26,6 +26,10 @@ def canonical_url(value: str) -> str:
             match = re.fullmatch(r"/(reel|p)/([A-Za-z0-9_-]{5,32})/?", parsed.path)
             if match:
                 return f"https://www.instagram.com/{match[1]}/{match[2]}/"
+        if host in {"tiktok.com", "www.tiktok.com", "m.tiktok.com"}:
+            match = re.fullmatch(r"/@([A-Za-z0-9_.]{1,32})/video/([0-9]{15,22})/?", parsed.path)
+            if match:
+                return f"https://www.tiktok.com/@{match[1]}/video/{match[2]}"
         identity = None
         if host == "youtu.be":
             identity = parsed.path.removeprefix("/")
@@ -40,7 +44,7 @@ def canonical_url(value: str) -> str:
             return f"https://www.youtube.com/watch?v={identity}"
     except (TypeError, ValueError):
         pass
-    raise InspectionError("unsupported_url", "Supply one HTTPS Instagram Reel/post or YouTube video URL.")
+    raise InspectionError("unsupported_url", "Supply one HTTPS Instagram Reel/post, YouTube video, or full TikTok @user/video/id URL.")
 
 
 @dataclass(frozen=True)
