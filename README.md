@@ -4,7 +4,7 @@
 
 VideoVerify is an open-source project that helps AI agents inspect videos, identify verifiable problems, and determine whether a revision fixed an issue without introducing new regressions.
 
-> **Status (0.4.1):** local MP4 inspection, timestamped picture sequences, optional public Instagram/YouTube/TikTok import, optional local speech transcription through CLI/MCP, and an attended desktop browser screenshot command. Subtitle alignment, quality analysis and comparison remain planned. Platform access is not guaranteed.
+> **Status (0.4.2):** local MP4 inspection, timestamped picture sequences, optional public Instagram/YouTube/TikTok import, optional local speech transcription through CLI/MCP, and an attended desktop browser screenshot command. Subtitle alignment, quality analysis and comparison remain planned. Platform access is not guaranteed.
 
 ## When a YouTube URL cannot be imported
 
@@ -46,7 +46,12 @@ not decoded source-file frame indices. No audio or transcript is captured.
 Pictures do not establish continuous motion, audio quality, rights to reuse
 the creator's footage or audience performance. Public access is not a licence.
 
-Limits: up to24 increasing timestamps, a finite video duration up to600seconds,
+The screenshot-only route also accepts long-form videos up to two hours. It
+still needs ordinary public playback on the capture machine. This is not a
+YouTube login/bot-check bypass or proof of direct VPS access. The downloadable
+media importer retains its separate duration/byte limits.
+
+Limits: up to24 increasing timestamps, a finite video duration up to two hours,
 8MiB per screenshot and32MiB total picture data. Partial packets are removed on
 failure. Ad playback, a changed/unconfirmed video identity and unreadable media
 stop capture. Page/DOM changes may also stop it; this command uses the normal

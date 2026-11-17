@@ -14,6 +14,8 @@ import zipfile
 from .acquisition import canonical_url
 from .core import InspectionError
 
+MAX_BROWSER_SECONDS = 2 * 60 * 60
+
 
 def youtube_url(value: str) -> str:
     url = canonical_url(value)
@@ -53,8 +55,10 @@ def check_page(page, source_url: str) -> dict:
     if state["video_id"] != source_url.rsplit("=", 1)[1]:
         raise InspectionError("source_unverified", "The player's video identity could not be confirmed.")
     if (not state["available"] or state["ready"] < 2 or not state["width"] or
-            not state["height"] or not state["duration"] or state["duration"] > 600):
-        raise InspectionError("player_not_ready", "Start ordinary playback of a video up to 600 seconds, then capture.")
+            not state["height"] or not state["duration"] or
+            not math.isfinite(state["duration"]) or
+            not 0 < state["duration"] <= MAX_BROWSER_SECONDS):
+        raise InspectionError("player_not_ready", "Start ordinary playback of a video up to two hours, then capture.")
     return state
 
 

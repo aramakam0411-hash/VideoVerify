@@ -5,10 +5,42 @@ import zipfile
 
 import pytest
 
-from videoverify.browser_capture import capture_page, validate_times, youtube_url
+from videoverify.browser_capture import capture_page, check_page, validate_times, youtube_url
 from videoverify.core import InspectionError
 
 URL = "https://www.youtube.com/watch?v=x7X9w_GIm1s"
+
+
+class DurationPage:
+    """Only the allowlisted player state, without a network or long media file."""
+    url = URL
+
+    def __init__(self, duration):
+        self.duration = duration
+
+    def locator(self, selector):
+        assert selector == 'body'
+        return self
+
+    def inner_text(self, **kwargs):
+        return 'ordinary public player'
+
+    def evaluate(self, expression):
+        return dict(video_id='x7X9w_GIm1s', ad=False, available=True, ready=2,
+                    seeking=False, width=1920, height=1080, time=0,
+                    duration=self.duration)
+
+
+@pytest.mark.parametrize('duration', [601, 3600, 7200])
+def test_longform_player_duration_does_not_require_source_download(duration):
+    assert check_page(DurationPage(duration), URL)['duration'] == duration
+
+
+@pytest.mark.parametrize('duration', [0, -1, 7200.01, float('inf'), float('nan')])
+def test_unbounded_or_invalid_player_duration_stops(duration):
+    with pytest.raises(InspectionError) as error:
+        check_page(DurationPage(duration), URL)
+    assert error.value.code == 'player_not_ready'
 
 
 @pytest.mark.parametrize("url", ["https://www.instagram.com/reel/abcdef/", "https://youtube.com/playlist?list=abc", "file:///tmp/test.mp4", "https://evil.example/watch?v=x7X9w_GIm1s"])
